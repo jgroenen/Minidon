@@ -101,9 +101,166 @@
                         color: var(--mastodon-text-light);
                         font-size: 1.1rem;
                     }
+                    
+                    /* Modal styles */
+                    .modal-overlay {
+                        display: none;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background-color: rgba(0, 0, 0, 0.5);
+                        z-index: 1000;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    
+                    .modal-overlay.active {
+                        display: flex;
+                    }
+                    
+                    .modal {
+                        background: white;
+                        border-radius: 12px;
+                        padding: 1.5rem;
+                        width: 90%;
+                        max-width: 400px;
+                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+                        animation: modalSlideIn 0.2s ease-out;
+                    }
+                    
+                    @keyframes modalSlideIn {
+                        from {
+                            opacity: 0;
+                            transform: translateY(-20px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+                    
+                    .modal h2 {
+                        color: var(--mastodon-primary);
+                        font-size: 1.25rem;
+                        margin-bottom: 1rem;
+                        font-weight: 600;
+                    }
+                    
+                    .modal-form {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 1rem;
+                    }
+                    
+                    .modal-form label {
+                        font-weight: 500;
+                        color: var(--mastodon-text);
+                        font-size: 0.9rem;
+                    }
+                    
+                    .modal-form input {
+                        padding: 0.65rem;
+                        border: 1px solid var(--mastodon-border);
+                        border-radius: 6px;
+                        font-size: 1rem;
+                        font-family: inherit;
+                        transition: border-color 0.2s ease;
+                    }
+                    
+                    .modal-form input:focus {
+                        outline: none;
+                        border-color: var(--mastodon-primary);
+                    }
+                    
+                    .modal-form input::placeholder {
+                        color: var(--mastodon-text-light);
+                    }
+                    
+                    .modal-buttons {
+                        display: flex;
+                        gap: 0.75rem;
+                        justify-content: flex-end;
+                        margin-top: 1.5rem;
+                    }
+                    
+                    .modal-button {
+                        padding: 0.5rem 1.25rem;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 0.95rem;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: background-color 0.2s ease, opacity 0.2s ease;
+                    }
+                    
+                    .modal-button.primary {
+                        background-color: var(--mastodon-primary);
+                        color: white;
+                    }
+                    
+                    .modal-button.primary:hover {
+                        background-color: var(--mastodon-secondary);
+                    }
+                    
+                    .modal-button.secondary {
+                        background-color: transparent;
+                        color: var(--mastodon-text-light);
+                    }
+                    
+                    .modal-button.secondary:hover {
+                        background-color: #f0f0f0;
+                        color: var(--mastodon-text);
+                    }
+                    
+                    .actor-url-display {
+                        background: #f6f8fa;
+                        border: 1px solid var(--mastodon-border);
+                        border-radius: 6px;
+                        padding: 0.75rem;
+                        font-size: 0.85rem;
+                        word-break: break-all;
+                        color: var(--mastodon-text-light);
+                        margin-top: 0.5rem;
+                    }
                 </style>
             </head>
             <body>
+                <!-- Follow Modal -->
+                <div id="followModal" class="modal-overlay">
+                    <div class="modal">
+                        <h2>Volg op Mastodon</h2>
+                        <p style="color: var(--mastodon-text-light); margin-bottom: 1rem; font-size: 0.95rem;">
+                            Voer je Mastodon instance in om direct te volgen.
+                        </p>
+                        <div class="actor-url-display" id="actorUrlDisplay"></div>
+                        <form class="modal-form" id="followForm" onsubmit="event.preventDefault(); followOnMastodon();">
+                            <div>
+                                <label for="mastodonInstance">Mastodon instance</label>
+                                <input 
+                                    type="text" 
+                                    id="mastodonInstance" 
+                                    placeholder="mastodon.social"
+                                    required="required"
+                                />
+                            </div>
+                            <div>
+                                <label for="mastodonUsername">Jouw username (optioneel)</label>
+                                <input 
+                                    type="text" 
+                                    id="mastodonUsername" 
+                                    placeholder="@jouwnaam"
+                                />
+                            </div>
+                            <div class="modal-buttons">
+                                <button type="button" class="modal-button secondary" onclick="closeFollowModal();">Annuleren</button>
+                                <button type="submit" class="modal-button primary">Volg nu</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
                 <div class="container">
                     <h1><xsl:value-of select="data/actorName"/></h1>
                     <xsl:choose>
@@ -115,15 +272,7 @@
                                 </div>
                             </div>
                             <div style="text-align: center; margin-top: 1rem;">
-                                <a 
-                                    href="https://mastodon.social/intent/follow?uri={data/actorUrl}" 
-                                    class="follow-button" 
-                                    title="Volg {data/actorName} op Mastodon"
-                                    onclick="event.preventDefault(); window.open(this.href, '_blank', 'width=400,height=500');"
-                                >Volg mij op Mastodon</a>
-                                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--mastodon-text-light);">
-                                    of kopieer: <code style="background: #f0f0f0; padding: 0.15rem 0.3rem; border-radius: 3px;"><xsl:value-of select="data/actorUrl"/></code>
-                                </div>
+                                <button class="follow-button" onclick="openFollowModal();">Volg mij op Mastodon</button>
                             </div>
                         </xsl:when>
                         <xsl:otherwise>
@@ -133,6 +282,64 @@
                         </xsl:otherwise>
                     </xsl:choose>
                 </div>
+                
+                <script>
+                    const actorUrl = '<xsl:value-of select="data/actorUrl"/>';
+                    
+                    function openFollowModal() {
+                        document.getElementById('followModal').classList.add('active');
+                        document.getElementById('actorUrlDisplay').textContent = actorUrl;
+                        document.getElementById('mastodonInstance').focus();
+                    }
+                    
+                    function closeFollowModal() {
+                        document.getElementById('followModal').classList.remove('active');
+                        document.getElementById('followForm').reset();
+                    }
+                    
+                    function followOnMastodon() {
+                        const instance = document.getElementById('mastodonInstance').value.trim();
+                        const username = document.getElementById('mastodonUsername').value.trim();
+                        
+                        if (!instance) {
+                            alert('Voer een Mastodon instance in');
+                            return;
+                        }
+                        
+                        // Normalize instance (remove protocol, trailing slash)
+                        let normalizedInstance = instance
+                            .replace(/^https?:\/\//, '')
+                            .replace(/\/$/, '');
+                        
+                        // Build the intent URL
+                        let intentUrl = `https://${normalizedInstance}/intent/follow?uri=${encodeURIComponent(actorUrl)}`;
+                        
+                        // If username is provided, add it to the URL for some instances
+                        if (username) {
+                            intentUrl += `&amp;username=${encodeURIComponent(username)}`;
+                        }
+                        
+                        // Open in new window
+                        window.open(intentUrl, '_blank', 'width=400,height=500');
+                        
+                        // Close modal
+                        closeFollowModal();
+                    }
+                    
+                    // Close modal when clicking outside
+                    document.getElementById('followModal').addEventListener('click', function(e) {
+                        if (e.target === this) {
+                            closeFollowModal();
+                        }
+                    });
+                    
+                    // Close modal with Escape key
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape') {
+                            closeFollowModal();
+                        }
+                    });
+                </script>
             </body>
         </html>
     </xsl:template>
