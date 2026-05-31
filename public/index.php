@@ -121,6 +121,19 @@ if ($path === '/.well-known/webfinger') {
     exit;
 }
 
+// Helper function to extract username from @-prefixed paths
+function extractUsername(string $path): ?string {
+    if (preg_match('#^/@([a-zA-Z0-9_-]+)#', $path, $matches)) {
+        return urldecode($matches[1]);
+    }
+    return null;
+}
+
+// Check if client wants JSON (ActivityPub) or HTML (browser)
+$acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
+$wantsJson = strpos($acceptHeader, 'application/activity+json') !== false ||
+            strpos($acceptHeader, 'application/json') !== false;
+
 // Handle /posts/{id}
 if (preg_match('#^/posts/([a-zA-Z0-9\-]+)$#', $path, $matches)) {
     $postId = $matches[1];
@@ -133,6 +146,68 @@ if (preg_match('#^/posts/([a-zA-Z0-9\-]+)$#', $path, $matches)) {
         die("Post not found");
     }
     exit;
+}
+
+// Handle /@username routes first (most specific)
+$username = extractUsername($path);
+if ($username !== null) {
+    // Remove /@username from path to get subpath
+    $subpath = substr($path, strlen('/@' . $username));
+    if ($subpath === '' || $subpath === '/') {
+        // /@username - Actor
+        if ($wantsJson) {
+            header('Content-Type: application/activity+json');
+            echo json_encode($minidon->getActor(), JSON_PRETTY_PRINT);
+        } else {
+            // Show HTML profile page
+            header('Content-Type: text/html');
+            echo $minidon->renderWithXSLT('post', [
+                'actorName' => $config->ACTOR_NAME,
+                'actorUrl' => $config->ACTOR_URL,
+                'post' => $minidon->getLastPost(),
+            ]);
+        }
+        exit;
+    } elseif ($subpath === '/inbox') {
+        // /@username/inbox - Only accepts POST with JSON
+        if ($method !== 'POST') {
+            http_response_code(405);
+            die("Method not allowed");
+        }
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (empty($input['type'])) {
+            http_response_code(400);
+            die("Bad request: 'type' is required");
+        }
+        if ($input['type'] === 'Follow' && !empty($input['actor'])) {
+            $minidon->addSubscriber($input['actor']);
+            error_log("New subscriber: " . $input['actor']);
+            http_response_code(202);
+            die("Accepted");
+        }
+        http_response_code(400);
+        die("Bad request: unsupported activity type");
+        exit;
+    } elseif ($subpath === '/outbox') {
+        // /@username/outbox - Collection of posts
+        $lastPost = $minidon->getLastPost();
+        if ($wantsJson) {
+            header('Content-Type: application/activity+json');
+            echo json_encode($lastPost !== null ? [$lastPost] : []);
+        } else {
+            // Show HTML posts page
+            header('Content-Type: text/html');
+            echo $minidon->renderWithXSLT('post', [
+                'actorName' => $config->ACTOR_NAME,
+                'actorUrl' => $config->ACTOR_URL,
+                'post' => $lastPost,
+            ]);
+        }
+        exit;
+    }
+    // Unknown /@username/subpath
+    http_response_code(404);
+    die("Not found");
 }
 
 // Handle routes
@@ -167,39 +242,16 @@ switch ($path) {
         echo json_encode($post, JSON_PRETTY_PRINT);
         break;
 
-    // Handle dynamic /@username actor route
-    case (preg_match('#^/@([a-zA-Z0-9_-]+)$#', $path, $matches) ? true : false):
-        $requestedUsername = urldecode($matches[1]);
-        // For single-user, any /@username maps to our actor
-        header('Content-Type: application/activity+json');
-        echo json_encode($minidon->getActor(), JSON_PRETTY_PRINT);
-        break;
-
-    // Handle /@username/inbox
-    case (preg_match('#^/@([a-zA-Z0-9_-]+)/inbox$#', $path, $matches) ? true : false):
-        if ($method !== 'POST') {
-            http_response_code(405);
-            die("Method not allowed");
-        }
-        $input = json_decode(file_get_contents('php://input'), true);
-        if (empty($input['type'])) {
-            http_response_code(400);
-            die("Bad request: 'type' is required");
-        }
-        if ($input['type'] === 'Follow' && !empty($input['actor'])) {
-            $minidon->addSubscriber($input['actor']);
-            error_log("New subscriber: " . $input['actor']);
-            http_response_code(202);
-            die("Accepted");
-        }
-        break;
-
     case '/posts':
-    case (preg_match('#^/@([a-zA-Z0-9_-]+)/outbox$#', $path, $matches) ? true : false):
         $lastPost = $minidon->getLastPost();
-        header('Content-Type: application/activity+json');
-        echo json_encode($lastPost !== null ? [$lastPost] : []);
-        break;
+        if ($wantsJson) {
+            header('Content-Type: application/activity+json');
+            echo json_encode($lastPost !== null ? [$lastPost] : []);
+        } else {
+            // For HTML, redirect to homepage
+            header('Location: /');
+        }
+        exit;
 
     default:
         http_response_code(404);
