@@ -339,6 +339,18 @@ final class Minidon
     }
 
     /**
+     * Verzendt een single ActivityPub activity naar een inbox.
+     */
+    public function sendActivity(string $inboxUrl, array $activity): void
+    {
+        $actor = $this->actorRepository->getFirst();
+        if ($actor === null) {
+            return; // No actor to send from
+        }
+        $this->sendActivitiesParallel($actor, [$inboxUrl], $activity);
+    }
+
+    /**
      * Verzendt ActivityPub-activities parallel met curl_multi_*.
      */
     private function sendActivitiesParallel(Actor $actor, array $inboxUrls, array $activity): void

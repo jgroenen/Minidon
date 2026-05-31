@@ -333,6 +333,32 @@ if ($username !== null && $actorRepository->hasUsername($username)) {
         if ($input['type'] === 'Follow' && !empty($input['actor'])) {
             $minidon->addSubscriber($username, $input['actor']);
             error_log("New subscriber for $username: " . $input['actor']);
+            
+            // Send Accept activity back to the follower (ActivityPub spec)
+            $actor = $actorRepository->getByUsername($username);
+            if ($actor !== null) {
+                // Extract follower's inbox URL from their actor URL
+                $followerInbox = $input['actor'] . '/inbox';
+                
+                $acceptActivity = [
+                    '@context' => 'https://www.w3.org/ns/activitystreams',
+                    'id' => $actor->getUrl() . '/' . time() . '/accept',
+                    'type' => 'Accept',
+                    'actor' => $actor->getUrl(),
+                    'published' => date('c'),
+                    'object' => [
+                        '@context' => 'https://www.w3.org/ns/activitystreams',
+                        'id' => $input['id'] ?? $actor->getUrl() . '/' . time() . '/follow',
+                        'type' => 'Follow',
+                        'actor' => $input['actor'],
+                        'object' => $actor->getUrl(),
+                    ],
+                ];
+                
+                // Send Accept asynchronously
+                $minidon->sendActivity($followerInbox, $acceptActivity);
+            }
+            
             http_response_code(202);
             die("Accepted");
         }
