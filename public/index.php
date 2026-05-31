@@ -335,15 +335,46 @@ if ($username !== null && $actorRepository->hasUsername($username)) {
         die("Bad request: unsupported activity type");
         exit;
     } elseif ($subpath === '/outbox') {
-        // /@username/outbox - Collection of posts
-        $lastPost = $minidon->getLastPost($username);
+        // /@username/outbox - OrderedCollection of posts (ActivityPub spec)
+        $actor = $actorRepository->getByUsername($username);
+        if ($actor === null) {
+            http_response_code(404);
+            die("Actor not found");
+        }
+        
+        // Get all posts for this actor
+        $postsData = $minidon->getAllPosts($username, 1, 1000); // Get all for now
+        
         if ($wantsJson) {
             header('Content-Type: application/activity+json');
-            echo json_encode($lastPost !== null ? [$lastPost] : []);
+            
+            // Build OrderedCollection with Create activities
+            $items = [];
+            foreach ($postsData['posts'] as $post) {
+                $items[] = [
+                    'type' => 'Create',
+                    'id' => $post['id'] . '/activity',
+                    'actor' => $actor->getUrl(),
+                    'published' => $post['published'] ?? date('c'),
+                    'object' => $post,
+                ];
+            }
+            
+            $outbox = [
+                '@context' => 'https://www.w3.org/ns/activitystreams',
+                'id' => $actor->getOutboxUrl(),
+                'type' => 'OrderedCollection',
+                'totalItems' => $postsData['total'],
+                'first' => $actor->getOutboxUrl() . '?page=1',
+                'last' => $actor->getOutboxUrl() . '?page=1',
+                'items' => $items,
+            ];
+            
+            echo json_encode($outbox, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         } else {
             // Show HTML posts page
             header('Content-Type: text/html');
-            $actor = $actorRepository->getByUsername($username);
+            $lastPost = $postsData['posts'][0] ?? null;
             echo $minidon->renderWithXSLT('post', [
                 'actorName' => $actor->name,
                 'actorUrl' => $actor->getUrl(),

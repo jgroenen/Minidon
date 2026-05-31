@@ -1,5 +1,4 @@
 id,priority,title,description,file,line,severity,status,estimated_time_minutes,category
-12,P2,MEDIUM: Outbox should be OrderedCollection,"Outbox moet een OrderedCollection zijn met paginatie, nu alleen laatste post.",public/index.php,260-270,Medium,TODO,40,Feature
 13,P2,MEDIUM: Config ACTOR_URL inconsistent,"Config genereert ACTOR_URL uit INSTANCE_NAME, maar ActorRepository gebruikt eigen usernames.",src/Config.php,35-37,Medium,TODO,20,Bug
 14,P2,MEDIUM: No health check endpoint,"Geen /health of /ping endpoint om service status te checken.",public/index.php,N/A,Medium,TODO,15,Feature
 15,P2,MEDIUM: post.sh only works on localhost,"post.sh script curl't naar localhost:8080, niet configurerbaar.",post.sh,15,Medium,TODO,10,Script
