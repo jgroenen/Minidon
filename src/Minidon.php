@@ -10,18 +10,14 @@ final class Minidon
     private const POSTS_CSV = 'posts.csv';
     private const SUBS_CSV = 'subscribers.csv';
 
-    // Properties voor Ed25519-sleutels
-    private string $privateKeyPEM = '';
-    private string $publicKeyPEM = '';
-
     public function __construct(
         private Config $config,
+        private ActorRepository $actorRepository,
     ) {
         $this->setupDataDirectory();
-        $this->generateKeys();
     }
 
-    // --- Setup en Sleutelgeneratie ---
+    // --- Setup ---
 
     /**
      * Zorgt ervoor dat de data-directory bestaat.
@@ -32,19 +28,6 @@ final class Minidon
         if (!file_exists($dataDir)) {
             mkdir($dataDir, 0755, true);
         }
-    }
-
-    /**
-     * Genereert Ed25519-sleutels voor ActivityPub.
-     */
-    private function generateKeys(): void
-    {
-        $keyPair = openssl_pkey_new([
-            'private_key_type' => OPENSSL_KEYTYPE_ED25519,
-        ]);
-        openssl_pkey_export($keyPair, $this->privateKeyPEM);
-        $publicKeyDetails = openssl_pkey_get_details($keyPair);
-        $this->publicKeyPEM = $publicKeyDetails['key'];
     }
 
     // --- CSV Operaties ---
@@ -69,67 +52,87 @@ final class Minidon
     // --- Post Operaties ---
 
     /**
-     * Maakt een nieuwe post aan en verzendt deze asynchroon naar alle subscribers.
+     * Maakt een nieuwe post aan voor een specifieke actor en verzendt deze asynchroon naar alle subscribers.
      */
-    public function createPost(string $content): array
+    public function createPost(string $username, string $content): array
     {
+        $actor = $this->actorRepository->getByUsername($username);
+        if ($actor === null) {
+            throw new \InvalidArgumentException("Actor not found: $username");
+        }
+
         $sanitizedContent = htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
+        $postId = time() . '_' . substr(md5($username), 0, 8);
+        
         $post = [
-            'id' => $this->config->POSTS_URL . '/' . time(),
+            'id' => $actor->getUrl() . '/' . $postId,
             'content' => $sanitizedContent,
             'published' => date('c'),
-            'author' => $this->config->ACTOR_URL,
+            'author' => $actor->getUrl(),
         ];
 
-        $this->appendToCSV($this->config->DATA_DIR . '/' . self::POSTS_CSV, $post);
+        $actorDataDir = $this->actorRepository->getActorDataDir($username);
+        $this->appendToCSV($actorDataDir . '/' . self::POSTS_CSV, $post);
 
         // Verzend asynchroon naar subscribers
-        $this->sendPostToSubscribers($post);
+        $this->sendPostToSubscribers($actor, $post);
 
         return $post;
     }
 
     /**
-     * Haalt een post op aan de hand van de ID.
+     * Haalt een post op aan de hand van de ID (zoekt in alle actors).
      */
     public function getPostById(string $postId): ?array
     {
-        $file = $this->config->DATA_DIR . '/' . self::POSTS_CSV;
-        if (!file_exists($file)) {
-            return null;
-        }
-
-        $fp = fopen($file, 'r');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open file: $file");
-        }
-
-        // Lees header
-        $header = fgetcsv($fp, 0, ',', '"', '\\');
-        if ($header === false) {
-            fclose($fp);
-            return null;
-        }
-
-        // Lees alle regels tot we de post vinden
-        while (($line = fgets($fp)) !== false) {
-            $post = str_getcsv($line, ',', '"', '\\');
-            if (isset($post[0]) && str_contains($post[0], $postId)) {
-                fclose($fp);
-                return array_combine($header, $post);
+        foreach ($this->actorRepository->getAll() as $actor) {
+            $actorDataDir = $this->actorRepository->getActorDataDir($actor->username);
+            $file = $actorDataDir . '/' . self::POSTS_CSV;
+            
+            if (!file_exists($file)) {
+                continue;
             }
-        }
 
-        fclose($fp);
+            $fp = fopen($file, 'r');
+            if ($fp === false) {
+                continue;
+            }
+
+            // Lees header
+            $header = fgetcsv($fp, 0, ',', '"', '\\');
+            if ($header === false) {
+                fclose($fp);
+                continue;
+            }
+
+            // Lees alle regels tot we de post vinden
+            while (($line = fgets($fp)) !== false) {
+                $post = str_getcsv($line, ',', '"', '\\');
+                if (isset($post[0]) && str_contains($post[0], $postId)) {
+                    fclose($fp);
+                    return array_combine($header, $post);
+                }
+            }
+
+            fclose($fp);
+        }
+        
         return null;
     }
 
     /**
-     * Haalt de laatste post op (leest alleen de laatste regel).
+     * Haalt de laatste post op van een specifieke actor.
      */
-    public function getLastPost(): ?array
+    public function getLastPost(string $username): ?array
     {
-        $file = $this->config->DATA_DIR . '/' . self::POSTS_CSV;
+        $actor = $this->actorRepository->getByUsername($username);
+        if ($actor === null) {
+            return null;
+        }
+
+        $actorDataDir = $this->actorRepository->getActorDataDir($username);
+        $file = $actorDataDir . '/' . self::POSTS_CSV;
+        
         if (!file_exists($file)) {
             return null;
         }
@@ -163,27 +166,52 @@ final class Minidon
         return array_combine($header, $post);
     }
 
+    /**
+     * Haalt de laatste post op van de eerste actor (backwards compatibility).
+     */
+    public function getLastPostAny(): ?array
+    {
+        $firstActor = $this->actorRepository->getFirst();
+        if ($firstActor === null) {
+            return null;
+        }
+        return $this->getLastPost($firstActor->username);
+    }
+
     // --- Subscriber Operaties ---
 
     /**
-     * Voegt een subscriber toe.
+     * Voegt een subscriber toe voor een specifieke actor.
      */
-    public function addSubscriber(string $actorUrl): void
+    public function addSubscriber(string $username, string $subscriberUrl): void
     {
+        $actor = $this->actorRepository->getByUsername($username);
+        if ($actor === null) {
+            throw new \InvalidArgumentException("Actor not found: $username");
+        }
+
+        $actorDataDir = $this->actorRepository->getActorDataDir($username);
         $this->appendToCSV(
-            $this->config->DATA_DIR . '/' . self::SUBS_CSV,
-            ['url' => $actorUrl]
+            $actorDataDir . '/' . self::SUBS_CSV,
+            ['url' => $subscriberUrl]
         );
     }
 
     /**
-     * Haalt alle subscribers op uit subscribers.csv.
+     * Haalt alle subscribers op voor een specifieke actor.
      *
      * @return array<int, string> Lijst met subscriber URLs.
      */
-    private function getSubscribers(): array
+    private function getSubscribers(string $username): array
     {
-        $file = $this->config->DATA_DIR . '/' . self::SUBS_CSV;
+        $actor = $this->actorRepository->getByUsername($username);
+        if ($actor === null) {
+            return [];
+        }
+
+        $actorDataDir = $this->actorRepository->getActorDataDir($username);
+        $file = $actorDataDir . '/' . self::SUBS_CSV;
+        
         if (!file_exists($file)) {
             return [];
         }
@@ -208,20 +236,20 @@ final class Minidon
     }
 
     /**
-     * Verzendt een post naar alle subscribers (parallel met curl_multi_*).
+     * Verzendt een post naar alle subscribers van een actor (parallel met curl_multi_*).
      */
-    private function sendPostToSubscribers(array $post): void
+    private function sendPostToSubscribers(Actor $actor, array $post): void
     {
-        $subscribers = $this->getSubscribers();
+        $subscribers = $this->getSubscribers($actor->username);
         if (empty($subscribers)) {
             return;
         }
 
         $activity = [
             '@context' => 'https://www.w3.org/ns/activitystreams',
-            'id' => $this->config->POSTS_URL . '/' . time() . '/activity',
+            'id' => $actor->getOutboxUrl() . '/' . time() . '/activity',
             'type' => 'Create',
-            'actor' => $this->config->ACTOR_URL,
+            'actor' => $actor->getUrl(),
             'published' => date('c'),
             'object' => $post,
         ];
@@ -292,23 +320,27 @@ final class Minidon
     // --- ActivityPub Actor ---
 
     /**
-     * Haalt de ActivityPub actor op.
+     * Haalt de ActivityPub actor op voor een specifieke actor.
      */
-    public function getActor(): array
+    public function getActor(string $username): ?array
     {
-        return [
-            '@context' => 'https://www.w3.org/ns/activitystreams',
-            'id' => $this->config->ACTOR_URL,
-            'type' => 'Person',
-            'name' => $this->config->ACTOR_NAME,
-            'inbox' => $this->config->ACTOR_URL . '/inbox',
-            'outbox' => $this->config->POSTS_URL,
-            'publicKey' => [
-                'id' => $this->config->ACTOR_URL . '#main-key',
-                'owner' => $this->config->ACTOR_URL,
-                'publicKeyPem' => $this->publicKeyPEM,
-            ],
-        ];
+        $actor = $this->actorRepository->getByUsername($username);
+        if ($actor === null) {
+            return null;
+        }
+        return $actor->toArray();
+    }
+
+    /**
+     * Haalt de eerste actor op (backwards compatibility).
+     */
+    public function getActorFirst(): ?array
+    {
+        $firstActor = $this->actorRepository->getFirst();
+        if ($firstActor === null) {
+            return null;
+        }
+        return $firstActor->toArray();
     }
 
     // --- XSLT Rendering ---

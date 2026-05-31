@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 // Laad de classes handmatig
 require_once __DIR__ . '/../src/Config.php';
+require_once __DIR__ . '/../src/Actor.php';
+require_once __DIR__ . '/../src/ActorRepository.php';
 require_once __DIR__ . '/../src/Minidon.php';
 
 // Laad .env handmatig (alleen voor API_KEY en ACTOR_NAME)
@@ -27,8 +29,19 @@ $config = new Minidon\Config(
     // ACTOR_URL en POSTS_URL worden automatisch gegenereerd uit $_SERVER
 );
 
+// Generate domain for actors
+$scheme = $_SERVER['REQUEST_SCHEME'] ?? 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$domain = $scheme . '://' . $host;
+
+// Maak ActorRepository (laadt actors uit ACTOR_NAME env var voor single-user)
+$actorRepository = new Minidon\ActorRepository(
+    $config->DATA_DIR,
+    $domain
+);
+
 // Maak Minidon instance
-$minidon = new Minidon\Minidon($config);
+$minidon = new Minidon\Minidon($config, $actorRepository);
 
 // Router
 $method = $_SERVER['REQUEST_METHOD'];
@@ -150,21 +163,22 @@ if (preg_match('#^/posts/([a-zA-Z0-9\-]+)$#', $path, $matches)) {
 
 // Handle /@username routes first (most specific)
 $username = extractUsername($path);
-if ($username !== null) {
+if ($username !== null && $actorRepository->hasUsername($username)) {
     // Remove /@username from path to get subpath
     $subpath = substr($path, strlen('/@' . $username));
     if ($subpath === '' || $subpath === '/') {
         // /@username - Actor
         if ($wantsJson) {
             header('Content-Type: application/activity+json');
-            echo json_encode($minidon->getActor(), JSON_PRETTY_PRINT);
+            echo json_encode($minidon->getActor($username), JSON_PRETTY_PRINT);
         } else {
             // Show HTML profile page
             header('Content-Type: text/html');
+            $actor = $actorRepository->getByUsername($username);
             echo $minidon->renderWithXSLT('post', [
-                'actorName' => $config->ACTOR_NAME,
-                'actorUrl' => $config->ACTOR_URL,
-                'post' => $minidon->getLastPost(),
+                'actorName' => $actor->name,
+                'actorUrl' => $actor->getUrl(),
+                'post' => $minidon->getLastPost($username),
             ]);
         }
         exit;
@@ -180,8 +194,8 @@ if ($username !== null) {
             die("Bad request: 'type' is required");
         }
         if ($input['type'] === 'Follow' && !empty($input['actor'])) {
-            $minidon->addSubscriber($input['actor']);
-            error_log("New subscriber: " . $input['actor']);
+            $minidon->addSubscriber($username, $input['actor']);
+            error_log("New subscriber for $username: " . $input['actor']);
             http_response_code(202);
             die("Accepted");
         }
@@ -190,16 +204,17 @@ if ($username !== null) {
         exit;
     } elseif ($subpath === '/outbox') {
         // /@username/outbox - Collection of posts
-        $lastPost = $minidon->getLastPost();
+        $lastPost = $minidon->getLastPost($username);
         if ($wantsJson) {
             header('Content-Type: application/activity+json');
             echo json_encode($lastPost !== null ? [$lastPost] : []);
         } else {
             // Show HTML posts page
             header('Content-Type: text/html');
+            $actor = $actorRepository->getByUsername($username);
             echo $minidon->renderWithXSLT('post', [
-                'actorName' => $config->ACTOR_NAME,
-                'actorUrl' => $config->ACTOR_URL,
+                'actorName' => $actor->name,
+                'actorUrl' => $actor->getUrl(),
                 'post' => $lastPost,
             ]);
         }
@@ -213,11 +228,16 @@ if ($username !== null) {
 // Handle routes
 switch ($path) {
     case '/':
-        $lastPost = $minidon->getLastPost();
+        $firstActor = $actorRepository->getFirst();
+        if ($firstActor === null) {
+            http_response_code(500);
+            die("No actors configured");
+        }
+        $lastPost = $minidon->getLastPost($firstActor->username);
         header('Content-Type: text/html');
         echo $minidon->renderWithXSLT('post', [
-            'actorName' => $config->ACTOR_NAME,
-            'actorUrl' => $config->ACTOR_URL,
+            'actorName' => $firstActor->name,
+            'actorUrl' => $firstActor->getUrl(),
             'post' => $lastPost,
         ]);
         break;
@@ -237,13 +257,24 @@ switch ($path) {
             http_response_code(401);
             die("Unauthorized");
         }
-        $post = $minidon->createPost($input['content']);
+        // For single-user, post to the first actor
+        $firstActor = $actorRepository->getFirst();
+        if ($firstActor === null) {
+            http_response_code(500);
+            die("No actors configured");
+        }
+        $post = $minidon->createPost($firstActor->username, $input['content']);
         header('Content-Type: application/activity+json');
         echo json_encode($post, JSON_PRETTY_PRINT);
         break;
 
     case '/posts':
-        $lastPost = $minidon->getLastPost();
+        $firstActor = $actorRepository->getFirst();
+        if ($firstActor === null) {
+            http_response_code(500);
+            die("No actors configured");
+        }
+        $lastPost = $minidon->getLastPost($firstActor->username);
         if ($wantsJson) {
             header('Content-Type: application/activity+json');
             echo json_encode($lastPost !== null ? [$lastPost] : []);
