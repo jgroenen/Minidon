@@ -1,0 +1,21 @@
+id,priority,title,description,file,line,severity,status,estimated_time_minutes,category
+1,P0,BLOCKER: Ed25519 compatibiliteit check,"OpenSSL ED25519 niet beschikbaar op alle PHP versies. Moet checken of supported voordat keys gegenereerd worden.",src/Actor.php,75-76,Critical,TODO,10,Security
+2,P0,BLOCKER: getPostById uses substring match,"Gebruikt str_contains in plaats van exacte ID match. Kan verkeerde posts retourneren.",src/Minidon.php,87,Critical,TODO,5,Bug
+3,P0,BLOCKER: Outbox URL is hardcoded to /posts,"Actor::getOutboxUrl() retourneert /posts in plaats van /@{username}/outbox volgens ActivityPub spec.",src/Actor.php,34,Critical,TODO,5,Bug
+4,P0,BLOCKER: NodeInfo total users always 1,"NodeInfo 2.0 retourneert altijd 'total' => 1, ook bij meerdere actors.",public/index.php,125-130,Critical,TODO,5,Bug
+5,P1,HIGH: API keys in plaintext in CSV,"API keys staan in plaintext in data/actors.csv. Risico bij server compromise.",data/actors.csv,N/A,High,TODO,30,Security
+6,P1,HIGH: WebFinger doesn't handle multi-user,"WebFinger endpoint retourneert altijd eerste actor, niet de specifieke username.",public/index.php,145-165,High,TODO,20,Bug
+7,P1,HIGH: No CSRF protection,"POST endpoints hebben geen CSRF protectie. Malicious sites kunnen posts maken.",public/index.php,N/A,High,TODO,60,Security
+8,P1,HIGH: No rate limiting,"Geen beperking op requests. DOS attack risico.",public/index.php,N/A,High,TODO,60,Security
+9,P1,HIGH: HTTPS required for federation,"ActivityPub vereist HTTPS. Huidige code werkt op HTTP.",N/A,N/A,High,TODO,30,Deployment
+10,P2,MEDIUM: HTTP Signatures not implemented,"Incoming activities worden niet geverifieerd met HTTP Signatures.",public/index.php,167-175,Medium,TODO,240,Feature
+11,P2,MEDIUM: Actor JSON missing publicKey in profile,"/@username returned JSON contains actor but not full ActivityPub object with publicKey.",public/index.php,220-230,Medium,TODO,20,Bug
+12,P2,MEDIUM: Outbox should be OrderedCollection,"Outbox moet een OrderedCollection zijn met paginatie, nu alleen laatste post.",public/index.php,260-270,Medium,TODO,40,Feature
+13,P2,MEDIUM: Config ACTOR_URL inconsistent,"Config genereert ACTOR_URL uit INSTANCE_NAME, maar ActorRepository gebruikt eigen usernames.",src/Config.php,35-37,Medium,TODO,20,Bug
+14,P2,MEDIUM: No health check endpoint,"Geen /health of /ping endpoint om service status te checken.",public/index.php,N/A,Medium,TODO,15,Feature
+15,P2,MEDIUM: post.sh only works on localhost,"post.sh script curl't naar localhost:8080, niet configurerbaar.",post.sh,15,Medium,TODO,10,Script
+16,P3,LOW: Improve pagination memory usage,"Alle posts worden in geheugen geladen voor paginatie. Nicht schaalbaar.",src/Minidon.php,189-200,Low,TODO,60,Performance
+17,P3,LOW: Inbox only handles Follow,"Inbox accepteert alleen Follow activities. Missing: Accept, Create, etc.",public/index.php,245-255,Low,TODO,120,Feature
+18,P3,LOW: Post content sanitization,"htmlspecialchars escape't alles. Overweeg markdown of beperkte HTML.",src/Minidon.php,65,Low,TODO,40,Feature
+19,P3,LOW: Avatar fallback,"Geen fallback avatar als URL 404't.",templates/actor.xsl,20,Low,TODO,20,Feature
+20,P3,LOW: Content-Type header missing,"Sommige endpoints missen expliciete Content-Type headers.",public/index.php,N/A,Low,TODO,15,Bug
