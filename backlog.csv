@@ -1,5 +1,4 @@
 id,priority,title,description,file,line,severity,status,estimated_time_minutes,category
-4,P0,BLOCKER: NodeInfo total users always 1,"NodeInfo 2.0 retourneert altijd 'total' => 1, ook bij meerdere actors.",public/index.php,125-130,Critical,TODO,5,Bug
 5,P1,HIGH: API keys in plaintext in CSV,"API keys staan in plaintext in data/actors.csv. Risico bij server compromise.",data/actors.csv,N/A,High,TODO,30,Security
 6,P1,HIGH: WebFinger doesn't handle multi-user,"WebFinger endpoint retourneert altijd eerste actor, niet de specifieke username.",public/index.php,145-165,High,TODO,20,Bug
 7,P1,HIGH: No CSRF protection,"POST endpoints hebben geen CSRF protectie. Malicious sites kunnen posts maken.",public/index.php,N/A,High,TODO,60,Security

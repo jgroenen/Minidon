@@ -113,6 +113,19 @@ if ($path === '/.well-known/nodeinfo') {
 // Handle NodeInfo 2.0 (both /nodeinfo/2.0 and /@username/nodeinfo/2.0)
 if ($path === '/nodeinfo/2.0' || preg_match('#^/@[a-zA-Z0-9_-]+/nodeinfo/2\.0$#', $path)) {
     header('Content-Type: application/json');
+    
+    // Count total actors and posts
+    $allActors = $actorRepository->getAll();
+    $totalUsers = count($allActors);
+    $totalPosts = 0;
+    foreach ($allActors as $actor) {
+        $actorDataDir = $actorRepository->getActorDataDir($actor->username);
+        $postsFile = $actorDataDir . '/posts.csv';
+        if (file_exists($postsFile)) {
+            $totalPosts += max(0, count(file($postsFile)) - 1); // -1 for header
+        }
+    }
+    
     echo json_encode([
         'version' => '2.0',
         'software' => [
@@ -127,9 +140,9 @@ if ($path === '/nodeinfo/2.0' || preg_match('#^/@[a-zA-Z0-9_-]+/nodeinfo/2\.0$#'
         'openRegistrations' => false,
         'usage' => [
             'users' => [
-                'total' => 1,
+                'total' => $totalUsers,
             ],
-            'localPosts' => 0,
+            'localPosts' => $totalPosts,
         ],
         'metadata' => [],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
