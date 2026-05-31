@@ -83,14 +83,42 @@ final class Actor
 
     /**
      * Generate Ed25519 key pair for ActivityPub.
+     *
+     * @throws \RuntimeException If Ed25519 is not supported (requires PHP 8.0+ with OpenSSL 1.1.1+)
      */
     private function generateKeys(): void
     {
+        // Check if Ed25519 is supported
+        if (!defined('OPENSSL_KEYTYPE_ED25519')) {
+            throw new \RuntimeException(
+                'Ed25519 not supported. Requires PHP 8.0+ with OpenSSL 1.1.1+.'
+            );
+        }
+
         $keyPair = openssl_pkey_new([
             'private_key_type' => OPENSSL_KEYTYPE_ED25519,
         ]);
-        openssl_pkey_export($keyPair, $this->privateKeyPEM);
+
+        if ($keyPair === false) {
+            throw new \RuntimeException(
+                'Failed to generate Ed25519 key pair. Check OpenSSL configuration.'
+            );
+        }
+
+        $exportResult = openssl_pkey_export($keyPair, $this->privateKeyPEM);
+        if ($exportResult === false) {
+            throw new \RuntimeException(
+                'Failed to export private key.'
+            );
+        }
+
         $publicKeyDetails = openssl_pkey_get_details($keyPair);
+        if ($publicKeyDetails === false || !isset($publicKeyDetails['key'])) {
+            throw new \RuntimeException(
+                'Failed to get public key details.'
+            );
+        }
+
         $this->publicKeyPEM = $publicKeyDetails['key'];
     }
 
