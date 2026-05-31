@@ -5,3 +5,4 @@ id,priority,title,description,file,line,severity,status,estimated_time_minutes,c
 18,P3,LOW: Post content sanitization,"htmlspecialchars escape't alles. Overweeg markdown of beperkte HTML.",src/Minidon.php,65,Low,TODO,40,Feature
 19,P3,LOW: Avatar fallback,"Geen fallback avatar als URL 404't.",templates/actor.xsl,20,Low,TODO,20,Feature
 20,P3,LOW: Content-Type header missing,"Sommige endpoints missen expliciete Content-Type headers.",public/index.php,N/A,Low,TODO,15,Bug
+21,P3,LOW: Add post attachments and rich content,"Ondersteun images, links, markdown in posts voor interessantere content.",src/Minidon.php,65,Low,TODO,60,Feature
