@@ -31,7 +31,7 @@ final class Config
         $this->validateDirectories();
     }
 
-    private function generateUrl(string $path): string
+    public function generateUrl(string $path): string
     {
         $scheme = $_SERVER['REQUEST_SCHEME'] ?? 'http';
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';

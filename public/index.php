@@ -100,11 +100,16 @@ if ($path !== '/' && $path !== '' && !str_starts_with($path, '/@') && !str_start
 // Handle NodeInfo discovery
 if ($path === '/.well-known/nodeinfo') {
     header('Content-Type: application/json');
+    
+    // For multi-user: use the instance's base URL for nodeinfo
+    // This links to /nodeinfo/2.0 which handles all actors
+    $nodeInfoUrl = $config->generateUrl('/nodeinfo/2.0');
+    
     echo json_encode([
         'links' => [
             [
                 'rel' => 'http://nodeinfo.diaspora.software/ns/schema/2.0',
-                'href' => $config->ACTOR_URL . '/nodeinfo/2.0',
+                'href' => $nodeInfoUrl,
             ],
         ],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
