@@ -9,6 +9,8 @@ All configuration variables that affect server behavior MUST be defined in the `
 - `INSTANCE_NAME` - The name of your Minidon instance
 - `TAGLINE` - The tagline displayed below the instance name
 - `POSTS_PER_PAGE` - Number of posts to display per page
+- `DATA_DIR` - Directory where actors and posts are stored (relative to project root)
+- `TEMPLATE_DIR` - Directory where XSLT templates are stored (relative to project root)
 
 ### 2. .env.example Must Contain All Variables
 Every configuration variable in `.env` MUST also be present in `.env.example` with example values.
@@ -45,14 +47,15 @@ minidon/
 ├── .env                # Required: Your configuration (NOT committed to git)
 ├── .env.example        # Required: Template with all config variables + examples
 ├── public/
-│   └── index.php        # Entry point
+│   ├── index.php        # Entry point
+│   └── styles.css       # Global stylesheet
 ├── src/
 │   ├── Config.php
 │   ├── Actor.php
 │   ├── ActorRepository.php
 │   └── Minidon.php
 ├── templates/
-│   ├── base.xsl         # Common CSS and templates
+│   ├── base.xsl         # Common templates (includes link to /styles.css)
 │   ├── home.xsl         # Homepage template
 │   ├── actor.xsl        # Single actor page template
 │   └── post.xsl         # Single post template (backward compatibility)
@@ -65,8 +68,8 @@ minidon/
 ## Code Organization Principles
 
 ### 1. XSLT Template Inheritance
-- All templates `include` `base.xsl` for common CSS and templates
-- CSS is defined once in `base.xsl` (no inline CSS duplication)
+- All templates `include` `base.xsl` for common templates
+- CSS is defined in `public/styles.css` and linked from `base.xsl` (no inline CSS duplication)
 - Common components (header, etc.) are named templates in `base.xsl`
 
 ### 2. Single Responsibility

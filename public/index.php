@@ -21,7 +21,7 @@ foreach ($env as $key => $value) {
 }
 
 // Valideer benodigde configuratie
-$requiredEnvVars = ['INSTANCE_NAME', 'TAGLINE', 'POSTS_PER_PAGE'];
+$requiredEnvVars = ['INSTANCE_NAME', 'TAGLINE', 'POSTS_PER_PAGE', 'DATA_DIR', 'TEMPLATE_DIR'];
 foreach ($requiredEnvVars as $var) {
     if (getenv($var) === false) {
         http_response_code(500);
@@ -32,9 +32,9 @@ foreach ($requiredEnvVars as $var) {
 // Maak Config object (ACTOR_URL en POSTS_URL worden dynamisch gegenereerd)
 $config = new Minidon\Config(
     INSTANCE_NAME: getenv('INSTANCE_NAME'),
+    DATA_DIR: __DIR__ . '/../' . getenv('DATA_DIR'),
+    TEMPLATE_DIR: __DIR__ . '/../' . getenv('TEMPLATE_DIR'),
     TAGLINE: getenv('TAGLINE'),
-    DATA_DIR: __DIR__ . '/../data',
-    TEMPLATE_DIR: __DIR__ . '/../templates',
     // ACTOR_URL en POSTS_URL worden automatisch gegenereerd uit $_SERVER
 );
 

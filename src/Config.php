@@ -15,20 +15,18 @@ final class Config
         string $INSTANCE_NAME,
         string $DATA_DIR,
         string $TEMPLATE_DIR,
-        string $ACTOR_URL = '',
-        string $POSTS_URL = '',
-        string $TAGLINE = '',
+        string $TAGLINE,
     ) {
         $this->INSTANCE_NAME = $INSTANCE_NAME;
         $this->DATA_DIR = $DATA_DIR;
         $this->TEMPLATE_DIR = $TEMPLATE_DIR;
         $this->TAGLINE = $TAGLINE;
 
-        // Als ACTOR_URL of POSTS_URL niet zijn meegegeven, genereer ze dynamisch
-        // Voor single-user ActivityPub: actor URL is /@{username} (URL-encoded)
+        // Generate ACTOR_URL and POSTS_URL dynamically
+        // For single-user ActivityPub: actor URL is /@{username} (URL-encoded)
         $username = urlencode(strtolower(str_replace(' ', '_', $INSTANCE_NAME)));
-        $this->ACTOR_URL = $ACTOR_URL ?: $this->generateUrl('/@' . $username);
-        $this->POSTS_URL = $POSTS_URL ?: $this->generateUrl('/posts');
+        $this->ACTOR_URL = $this->generateUrl('/@' . $username);
+        $this->POSTS_URL = $this->generateUrl('/posts');
 
         $this->validateDirectories();
     }
