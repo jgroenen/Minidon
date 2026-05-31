@@ -25,7 +25,9 @@ final class Config
         $this->TEMPLATE_DIR = $TEMPLATE_DIR;
 
         // Als ACTOR_URL of POSTS_URL niet zijn meegegeven, genereer ze dynamisch
-        $this->ACTOR_URL = $ACTOR_URL ?: $this->generateUrl('/actor');
+        // Voor single-user ActivityPub: actor URL is /@{username} (URL-encoded)
+        $username = urlencode(strtolower(str_replace(' ', '_', $ACTOR_NAME)));
+        $this->ACTOR_URL = $ACTOR_URL ?: $this->generateUrl('/@' . $username);
         $this->POSTS_URL = $POSTS_URL ?: $this->generateUrl('/posts');
 
         $this->validateDirectories();

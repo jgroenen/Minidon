@@ -56,8 +56,8 @@ if ($path === '/.well-known/nodeinfo') {
     exit;
 }
 
-// Handle NodeInfo 2.0
-if ($path === '/nodeinfo/2.0') {
+// Handle NodeInfo 2.0 (both /nodeinfo/2.0 and /@username/nodeinfo/2.0)
+if ($path === '/nodeinfo/2.0' || preg_match('#^/@[a-zA-Z0-9_-]+/nodeinfo/2\.0$#', $path)) {
     header('Content-Type: application/json');
     echo json_encode([
         'version' => '2.0',
@@ -95,6 +95,10 @@ if ($path === '/.well-known/webfinger') {
         
         // Check if domain matches
         if ($domain === $host || $domain === 'localhost') {
+            // Normalize the username for URL comparison
+            $normalizedUsername = strtolower(str_replace(' ', '_', $username));
+            $expectedActorPath = '/@' . $normalizedUsername;
+            
             header('Content-Type: application/jrd+json');
             echo json_encode([
                 'subject' => 'acct:' . $username . '@' . $domain,
@@ -164,11 +168,21 @@ switch ($path) {
         break;
 
     case '/actor':
+        // Redirect old /actor to the new /@username format
+        header('HTTP/1.1 301 Moved Permanently');
+        header('Location: ' . $config->ACTOR_URL);
+        exit;
+
+    // Handle dynamic /@username actor route
+    case (preg_match('#^/@([a-zA-Z0-9_-]+)$#', $path, $matches) ? true : false):
+        $requestedUsername = urldecode($matches[1]);
+        // For single-user, any /@username maps to our actor
         header('Content-Type: application/activity+json');
         echo json_encode($minidon->getActor(), JSON_PRETTY_PRINT);
         break;
 
-    case '/actor/inbox':
+    // Handle /@username/inbox
+    case (preg_match('#^/@([a-zA-Z0-9_-]+)/inbox$#', $path, $matches) ? true : false):
         if ($method !== 'POST') {
             http_response_code(405);
             die("Method not allowed");
@@ -186,6 +200,12 @@ switch ($path) {
         }
         break;
 
+    // Handle old /actor/inbox redirect
+    case '/actor/inbox':
+        header('HTTP/1.1 301 Moved Permanently');
+        header('Location: ' . $config->ACTOR_URL . '/inbox');
+        exit;
+
     case '/inbox':
         // Redirect old /inbox to /actor/inbox
         header('HTTP/1.1 301 Moved Permanently');
@@ -194,6 +214,13 @@ switch ($path) {
 
     case '/posts':
     case '/actor/outbox':
+        $lastPost = $minidon->getLastPost();
+        header('Content-Type: application/activity+json');
+        echo json_encode($lastPost !== null ? [$lastPost] : []);
+        break;
+
+    // Handle /@username/outbox
+    case (preg_match('#^/@([a-zA-Z0-9_-]+)/outbox$#', $path, $matches) ? true : false):
         $lastPost = $minidon->getLastPost();
         header('Content-Type: application/activity+json');
         echo json_encode($lastPost !== null ? [$lastPost] : []);
