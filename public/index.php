@@ -6,6 +6,7 @@ require_once __DIR__ . '/../src/Config.php';
 require_once __DIR__ . '/../src/Actor.php';
 require_once __DIR__ . '/../src/ActorRepository.php';
 require_once __DIR__ . '/../src/Minidon.php';
+require_once __DIR__ . '/../src/HttpSignature.php';
 
 // Laad .env handmatig
 if (!file_exists(__DIR__ . '/../.env')) {
@@ -288,12 +289,38 @@ if ($username !== null && $actorRepository->hasUsername($username)) {
         }
         exit;
     } elseif ($subpath === '/inbox') {
-        // /@username/inbox - Only accepts POST with JSON
+        // /@username/inbox - Only accepts POST with JSON and valid HTTP Signature
         if ($method !== 'POST') {
             http_response_code(405);
             die("Method not allowed");
         }
-        $input = json_decode(file_get_contents('php://input'), true);
+        
+        // Read the raw body for signature verification
+        $body = file_get_contents('php://input');
+        
+        // Verify HTTP Signature
+        $isValidSignature = Minidon\HttpSignature::verifyRequest(
+            $_SERVER,
+            $body,
+            function(string $keyId) use ($actorRepository): ?string {
+                // Extract username from keyId (e.g., "https://example.com/@user#main-key")
+                if (preg_match('#/@([a-zA-Z0-9_-]+)#', $keyId, $matches)) {
+                    $actorUsername = urldecode($matches[1]);
+                    $actor = $actorRepository->getByUsername($actorUsername);
+                    if ($actor !== null) {
+                        return $actor->getPublicKeyPem();
+                    }
+                }
+                return null;
+            }
+        );
+        
+        if (!$isValidSignature) {
+            http_response_code(401);
+            die("Unauthorized: Invalid or missing HTTP Signature");
+        }
+        
+        $input = json_decode($body, true);
         if (empty($input['type'])) {
             http_response_code(400);
             die("Bad request: 'type' is required");

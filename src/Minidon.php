@@ -331,18 +331,26 @@ final class Minidon
             $inboxUrls[] = rtrim($subscriberUrl, '/') . '/inbox';
         }
 
-        $this->sendActivitiesParallel($inboxUrls, $activity);
+        $this->sendActivitiesParallel($actor, $inboxUrls, $activity);
     }
 
     /**
      * Verzendt ActivityPub-activities parallel met curl_multi_*.
      */
-    private function sendActivitiesParallel(array $inboxUrls, array $activity): void
+    private function sendActivitiesParallel(Actor $actor, array $inboxUrls, array $activity): void
     {
         $mh = curl_multi_init();
         $handles = [];
 
         $payload = json_encode($activity, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        
+        // Create HTTP Signature headers
+        $date = date('D, d M Y H:i:s \G\M\T');
+        $digest = 'SHA-256=' . base64_encode(hash('sha256', $payload, true));
+        $digest = rtrim(strtr($digest, '+/', '-_'), '=');
+        
+        $privateKeyPem = $actor->getPrivateKeyPem();
+        $keyId = $actor->getPublicKeyId();
 
         foreach ($inboxUrls as $inboxUrl) {
             $ch = curl_init();
@@ -350,10 +358,27 @@ final class Minidon
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false); // Geen respons nodig
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            
+            // Build signature for this specific request
+            $target = 'post ' . parse_url($inboxUrl, PHP_URL_PATH) . (parse_url($inboxUrl, PHP_URL_QUERY) ? '?' . parse_url($inboxUrl, PHP_URL_QUERY) : '');
+            $signatureString = "(request-target): $target\n" . "date: $date\n" . "digest: $digest\n";
+            
+            // Sign with Ed25519
+            $signature = '';
+            $keyResource = openssl_pkey_get_private($privateKeyPem);
+            if ($keyResource !== false) {
+                openssl_sign($signatureString, $signature, $keyResource, 'ed25519');
+            }
+            
+            $signatureEncoded = rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
+            
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
                 'Content-Type: application/activity+json',
                 'Accept: application/activity+json',
                 'User-Agent: Minidon/1.0',
+                "Date: $date",
+                "Digest: $digest",
+                "Signature: keyId=\"$keyId\",algorithm=\"ed25519\",signature=\"$signatureEncoded\",headers=\"(request-target) date digest\"",
             ]);
             curl_setopt($ch, CURLOPT_TIMEOUT, 5);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);

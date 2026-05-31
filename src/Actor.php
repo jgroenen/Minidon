@@ -20,6 +20,15 @@ final class Actor
     }
 
     /**
+     * Get the private key PEM for signing requests.
+     * WARNING: Only use for HTTP Signature signing, never expose this key.
+     */
+    public function getPrivateKeyPem(): string
+    {
+        return $this->privateKeyPEM;
+    }
+
+    /**
      * Get the full actor URL.
      */
     public function getUrl(): string
