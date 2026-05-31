@@ -5,42 +5,105 @@ namespace Minidon;
 
 /**
  * Manages multiple ActivityPub actors.
- * Loads actors from configuration and provides lookup by username.
+ * Loads actors from CSV file and provides lookup by username.
  */
 final class ActorRepository
 {
     /** @var array<string, Actor> Map of normalized username to Actor */
     private array $actors = [];
 
+    /** @var array<string, string> Map of normalized username to API key */
+    private array $apiKeys = [];
+
+    /** @var array<string, string> Map of normalized username to avatar URL */
+    private array $avatars = [];
+
     private string $dataDir;
     private string $domain;
 
     /**
-     * @param array<array{username: string, name: string}> $actorsConfig
+     * @param array<array{username: string, name: string, api_key?: string}> $actorsConfig
      */
     public function __construct(string $dataDir, string $domain, array $actorsConfig = [])
     {
         $this->dataDir = rtrim($dataDir, '/');
         $this->domain = rtrim($domain, '/');
 
-        // If no actors provided, create a default one from environment
-        if (empty($actorsConfig)) {
-            $username = getenv('ACTOR_NAME') ?: 'minidon';
-            $name = getenv('ACTOR_DISPLAY_NAME') ?: getenv('ACTOR_NAME') ?: 'Minidon';
-            $actorsConfig = [['username' => $username, 'name' => $name]];
+        // Try to load actors from CSV file
+        $csvPath = $this->dataDir . '/actors.csv';
+        if (file_exists($csvPath)) {
+            $this->loadActorsFromCsv($csvPath);
+        } elseif (!empty($actorsConfig)) {
+            // Load from config array
+            $this->loadActorsFromConfig($actorsConfig);
+        } else {
+            // No actors configuration found
+            throw new \RuntimeException(
+                'No actors configured. Please create a data/actors.csv file or provide actorsConfig.'
+            );
+        }
+    }
+
+    /**
+     * Load actors from CSV file.
+     * CSV format: username,name,avatar,api_key
+     */
+    private function loadActorsFromCsv(string $csvPath): void
+    {
+        $handle = fopen($csvPath, 'r');
+        if ($handle === false) {
+            throw new \RuntimeException("Cannot open actors CSV file: $csvPath");
         }
 
-        // Create Actor objects
+        $isFirstLine = true;
+        while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
+            // Skip header line
+            if ($isFirstLine) {
+                $isFirstLine = false;
+                continue;
+            }
+
+            if (count($row) >= 2) {
+                $username = trim($row[0]);
+                $name = trim($row[1]);
+                $avatar = count($row) >= 3 ? trim($row[2]) : '';
+                $apiKey = count($row) >= 4 ? trim($row[3]) : (count($row) >= 3 && $avatar === '' ? trim($row[2]) : '');
+                $this->addActor($username, $name, $apiKey, $avatar);
+            }
+        }
+        fclose($handle);
+    }
+
+    /**
+     * Load actors from config array.
+     * @param array<array{username: string, name: string, api_key?: string}> $actorsConfig
+     */
+    private function loadActorsFromConfig(array $actorsConfig): void
+    {
         foreach ($actorsConfig as $config) {
             $username = $config['username'];
             $name = $config['name'] ?? $username;
-            $normalized = Actor::normalizeUsername($username);
-            
-            $this->actors[$normalized] = new Actor(
-                $username,
-                $name,
-                $this->domain
-            );
+            $apiKey = $config['api_key'] ?? '';
+            $this->addActor($username, $name, $apiKey);
+        }
+    }
+
+    /**
+     * Add an actor to the repository.
+     */
+    private function addActor(string $username, string $name, string $apiKey, string $avatar = ''): void
+    {
+        $normalized = Actor::normalizeUsername($username);
+        $this->actors[$normalized] = new Actor(
+            $username,
+            $name,
+            $this->domain
+        );
+        if (!empty($apiKey)) {
+            $this->apiKeys[$normalized] = $apiKey;
+        }
+        if (!empty($avatar)) {
+            $this->avatars[$normalized] = $avatar;
         }
     }
 
@@ -92,5 +155,44 @@ final class ActorRepository
         }
         
         return $actorDir;
+    }
+
+    /**
+     * Get the avatar URL for a specific actor.
+     */
+    public function getAvatar(string $username): ?string
+    {
+        $normalized = Actor::normalizeUsername($username);
+        return $this->avatars[$normalized] ?? null;
+    }
+
+    /**
+     * Get the API key for a specific actor.
+     */
+    public function getApiKey(string $username): ?string
+    {
+        $normalized = Actor::normalizeUsername($username);
+        return $this->apiKeys[$normalized] ?? null;
+    }
+
+    /**
+     * Get the API key for the first actor (for single-user backwards compatibility).
+     */
+    public function getFirstApiKey(): ?string
+    {
+        $firstActor = $this->getFirst();
+        if ($firstActor === null) {
+            return null;
+        }
+        return $this->getApiKey($firstActor->username);
+    }
+
+    /**
+     * Validate an API key against an actor's API key.
+     */
+    public function validateApiKey(string $username, string $providedKey): bool
+    {
+        $apiKey = $this->getApiKey($username);
+        return $apiKey !== null && hash_equals($apiKey, $providedKey);
     }
 }

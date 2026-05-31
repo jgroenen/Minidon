@@ -7,23 +7,32 @@ require_once __DIR__ . '/../src/Actor.php';
 require_once __DIR__ . '/../src/ActorRepository.php';
 require_once __DIR__ . '/../src/Minidon.php';
 
-// Laad .env handmatig (alleen voor API_KEY en ACTOR_NAME)
-$env = [];
-if (file_exists(__DIR__ . '/../.env')) {
-    $env = parse_ini_file(__DIR__ . '/../.env');
-} elseif (file_exists(__DIR__ . '/../.env.example')) {
-    $env = parse_ini_file(__DIR__ . '/../.env.example');
+// Laad .env handmatig
+if (!file_exists(__DIR__ . '/../.env')) {
+    http_response_code(500);
+    die("Missing .env file. Please copy .env.example to .env and configure your settings.");
 }
+
+$env = parse_ini_file(__DIR__ . '/../.env');
 
 // Zet omgevingsvariabelen
 foreach ($env as $key => $value) {
     putenv("$key=$value");
 }
 
+// Valideer benodigde configuratie
+$requiredEnvVars = ['INSTANCE_NAME', 'TAGLINE', 'POSTS_PER_PAGE'];
+foreach ($requiredEnvVars as $var) {
+    if (getenv($var) === false) {
+        http_response_code(500);
+        die("Missing required configuration: $var. Please add it to your .env file.");
+    }
+}
+
 // Maak Config object (ACTOR_URL en POSTS_URL worden dynamisch gegenereerd)
 $config = new Minidon\Config(
-    API_KEY: getenv('MINIDON_API_KEY') ?: die("MINIDON_API_KEY is required in .env\n"),
-    ACTOR_NAME: getenv('ACTOR_NAME') ?: 'Minidon Radio',
+    INSTANCE_NAME: getenv('INSTANCE_NAME'),
+    TAGLINE: getenv('TAGLINE'),
     DATA_DIR: __DIR__ . '/../data',
     TEMPLATE_DIR: __DIR__ . '/../templates',
     // ACTOR_URL en POSTS_URL worden automatisch gegenereerd uit $_SERVER
@@ -53,6 +62,38 @@ if (strpos($path, '/public') === 0) {
 }
 if ($path === '') {
     $path = '/';
+}
+
+// Serve static files directly (CSS, JS, images, etc.)
+// Check if the request is for a static file that exists in the public directory
+if ($path !== '/' && $path !== '' && !str_starts_with($path, '/@') && !str_starts_with($path, '/posts') && !str_starts_with($path, '/post')) {
+    $filePath = __DIR__ . $path;
+    if (file_exists($filePath) && is_file($filePath)) {
+        $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+        $contentType = 'text/plain';
+        if ($extension === 'css') {
+            $contentType = 'text/css';
+        } elseif ($extension === 'js') {
+            $contentType = 'application/javascript';
+        } elseif ($extension === 'png') {
+            $contentType = 'image/png';
+        } elseif ($extension === 'jpg' || $extension === 'jpeg') {
+            $contentType = 'image/jpeg';
+        } elseif ($extension === 'gif') {
+            $contentType = 'image/gif';
+        } elseif ($extension === 'svg') {
+            $contentType = 'image/svg+xml';
+        } elseif ($extension === 'json') {
+            $contentType = 'application/json';
+        } elseif ($extension === 'html' || $extension === 'htm') {
+            $contentType = 'text/html';
+        } elseif ($extension === 'txt') {
+            $contentType = 'text/plain';
+        }
+        header("Content-Type: $contentType");
+        readfile($filePath);
+        exit;
+    }
 }
 
 // Handle NodeInfo discovery
@@ -167,18 +208,65 @@ if ($username !== null && $actorRepository->hasUsername($username)) {
     // Remove /@username from path to get subpath
     $subpath = substr($path, strlen('/@' . $username));
     if ($subpath === '' || $subpath === '/') {
-        // /@username - Actor
+        // /@username - Actor profile with all posts
         if ($wantsJson) {
             header('Content-Type: application/activity+json');
             echo json_encode($minidon->getActor($username), JSON_PRETTY_PRINT);
         } else {
-            // Show HTML profile page
-            header('Content-Type: text/html');
+            // Parse page number from query string
+            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            $perPage = (int)getenv('POSTS_PER_PAGE');
+            
+            $postsData = $minidon->getAllPosts($username, $page, $perPage);
             $actor = $actorRepository->getByUsername($username);
-            echo $minidon->renderWithXSLT('post', [
+            
+            // Build pagination data
+            $pagination = [];
+            if ($postsData['total'] > $perPage) {
+                $totalPages = $postsData['totalPages'];
+                
+                // Previous page
+                if ($page > 1) {
+                    $pagination['prevPage'] = '/@' . $username . '?page=' . ($page - 1);
+                }
+                
+                // Next page
+                if ($page < $totalPages) {
+                    $pagination['nextPage'] = '/@' . $username . '?page=' . ($page + 1);
+                }
+                
+                // Page numbers
+                $pages = [];
+                $maxVisiblePages = 5;
+                $half = (int)floor($maxVisiblePages / 2);
+                $start = max(1, $page - $half);
+                $end = min($totalPages, $start + $maxVisiblePages - 1);
+                
+                if ($end - $start + 1 < $maxVisiblePages) {
+                    $start = max(1, $end - $maxVisiblePages + 1);
+                }
+                
+                for ($i = $start; $i <= $end; $i++) {
+                    $pages[] = [
+                        'number' => $i,
+                        'url' => '/@' . $username . '?page=' . $i,
+                        'current' => $i === $page ? '1' : '0'
+                    ];
+                }
+                $pagination['pages'] = $pages;
+            }
+            
+            // Show HTML profile page with all posts
+            header('Content-Type: text/html');
+            $avatarUrl = $actorRepository->getAvatar($actor->username);
+            echo $minidon->renderWithXSLT('actor', [
                 'actorName' => $actor->name,
-                'actorUrl' => $actor->getUrl(),
-                'post' => $minidon->getLastPost($username),
+                'username' => $actor->username,
+                'avatar' => $avatarUrl,
+                'posts' => $postsData['posts'],
+                'pagination' => !empty($pagination) ? $pagination : null,
+                'instanceName' => $config->INSTANCE_NAME,
+                'tagline' => $config->TAGLINE,
             ]);
         }
         exit;
@@ -216,6 +304,8 @@ if ($username !== null && $actorRepository->hasUsername($username)) {
                 'actorName' => $actor->name,
                 'actorUrl' => $actor->getUrl(),
                 'post' => $lastPost,
+                'instanceName' => $config->INSTANCE_NAME,
+                'tagline' => $config->TAGLINE,
             ]);
         }
         exit;
@@ -228,17 +318,24 @@ if ($username !== null && $actorRepository->hasUsername($username)) {
 // Handle routes
 switch ($path) {
     case '/':
-        $firstActor = $actorRepository->getFirst();
-        if ($firstActor === null) {
-            http_response_code(500);
-            die("No actors configured");
+        // Build actors data for homepage
+        $actorsData = [];
+        foreach ($actorRepository->getAll() as $actor) {
+            $avatarUrl = $actorRepository->getAvatar($actor->username);
+            $actorsData[] = [
+                'username' => $actor->username,
+                'name' => $actor->name,
+                'url' => $actor->getUrl(),
+                'avatar' => $avatarUrl,
+                'lastPost' => $minidon->getLastPost($actor->username),
+            ];
         }
-        $lastPost = $minidon->getLastPost($firstActor->username);
+        
         header('Content-Type: text/html');
-        echo $minidon->renderWithXSLT('post', [
-            'actorName' => $firstActor->name,
-            'actorUrl' => $firstActor->getUrl(),
-            'post' => $lastPost,
+        echo $minidon->renderWithXSLT('home', [
+            'actors' => $actorsData,
+            'instanceName' => $config->INSTANCE_NAME,
+            'tagline' => $config->TAGLINE,
         ]);
         break;
 
@@ -253,7 +350,8 @@ switch ($path) {
             die("Bad request: 'content' is required");
         }
         $providedKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
-        if ($providedKey !== $config->API_KEY) {
+        $firstApiKey = $actorRepository->getFirstApiKey();
+        if ($firstApiKey === null || !hash_equals($firstApiKey, $providedKey)) {
             http_response_code(401);
             die("Unauthorized");
         }

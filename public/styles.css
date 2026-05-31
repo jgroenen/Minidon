@@ -1,0 +1,234 @@
+:root {
+    --mastodon-primary: #3088d4;
+    --mastodon-secondary: #6364ff;
+    --mastodon-bg: #f6f8fa;
+    --mastodon-text: #191919;
+    --mastodon-text-light: #657786;
+    --mastodon-border: #e1e8ed;
+    --mastodon-success: #38a169;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--mastodon-bg);
+    color: var(--mastodon-text);
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    color: var(--mastodon-primary);
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+header h1 a {
+    color: var(--mastodon-primary);
+    text-decoration: none;
+}
+
+header h1 .tagline {
+    color: var(--mastodon-text-light);
+    font-size: 1rem;
+    font-weight: normal;
+}
+
+.actors-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.actor-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--mastodon-border);
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: flex;
+    gap: 1rem;
+}
+
+.actor-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    object-fit: cover;
+}
+
+.actor-avatar div {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--mastodon-primary), var(--mastodon-secondary));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+}
+
+.actor-avatar div::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 3px solid white;
+    background: linear-gradient(135deg, var(--mastodon-primary), var(--mastodon-secondary));
+    z-index: -1;
+    opacity: 0.8;
+}
+
+.actor-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.actor-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.actor-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--mastodon-text);
+    margin-bottom: 0.25rem;
+}
+
+.actor-username {
+    color: var(--mastodon-text-light);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    text-decoration: none;
+}
+
+.actor-username:hover {
+    color: var(--mastodon-primary);
+    text-decoration: underline;
+}
+
+.actor-latest-post {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--mastodon-border);
+}
+
+.actor-latest-post .post-content {
+    font-size: 1rem;
+    color: var(--mastodon-text);
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
+.actor-latest-post .post-meta {
+    font-size: 0.85rem;
+    color: var(--mastodon-text-light);
+}
+
+.post {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--mastodon-border);
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+}
+
+.post-content {
+    font-size: 1rem;
+    color: var(--mastodon-text);
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.post-meta {
+    font-size: 0.85rem;
+    color: var(--mastodon-text-light);
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.pagination a,
+.pagination span {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--mastodon-border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: var(--mastodon-text);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.pagination a:hover {
+    background: var(--mastodon-primary);
+    color: white;
+    border-color: var(--mastodon-primary);
+}
+
+.pagination .current {
+    background: var(--mastodon-primary);
+    color: white;
+    border-color: var(--mastodon-primary);
+}
+
+.no-posts {
+    color: var(--mastodon-text-light);
+    font-style: italic;
+    font-size: 0.9rem;
+    margin-top: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--mastodon-border);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--mastodon-text-light);
+}
+
+.empty-state h2 {
+    color: var(--mastodon-text);
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 600px) {
+    .actor-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .actor-avatar {
+        width: 80px;
+        height: 80px;
+        font-size: 2.5rem;
+    }
+}

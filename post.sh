@@ -5,11 +5,11 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-# Laad API key uit .env
-if [ -f ".env" ]; then
-    API_KEY=$(grep "MINIDON_API_KEY" .env | cut -d '=' -f2)
+# Laad API key uit actors.csv (eerste regel na header, 4e kolom)
+if [ -f "data/actors.csv" ]; then
+    API_KEY=$(tail -n +2 data/actors.csv | head -n 1 | cut -d ',' -f4)
 else
-    echo "Fout: .env bestand niet gevonden."
+    echo "Fout: data/actors.csv bestand niet gevonden."
     exit 1
 fi
 

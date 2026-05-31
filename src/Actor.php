@@ -99,6 +99,6 @@ final class Actor
      */
     public static function normalizeUsername(string $username): string
     {
-        return strtolower(str_replace(' ', '_', $username));
+        return strtolower(str_replace([' ', '@'], '_', $username));
     }
 }

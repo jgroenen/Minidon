@@ -178,6 +178,72 @@ final class Minidon
         return $this->getLastPost($firstActor->username);
     }
 
+    /**
+     * Haalt alle posts op van een specifieke actor (gepagineerd).
+     * @param string $username De username van de actor
+     * @param int $page Pagina nummer (1-based)
+     * @param int $perPage Aantal posts per pagina
+     * @return array{posts: array, total: int, page: int, perPage: int}
+     */
+    public function getAllPosts(string $username, int $page = 1, int $perPage = 20): array
+    {
+        $actor = $this->actorRepository->getByUsername($username);
+        if ($actor === null) {
+            return ['posts' => [], 'total' => 0, 'page' => $page, 'perPage' => $perPage];
+        }
+
+        $actorDataDir = $this->actorRepository->getActorDataDir($username);
+        $file = $actorDataDir . '/' . self::POSTS_CSV;
+        
+        if (!file_exists($file)) {
+            return ['posts' => [], 'total' => 0, 'page' => $page, 'perPage' => $perPage];
+        }
+
+        $fp = fopen($file, 'r');
+        if ($fp === false) {
+            throw new \RuntimeException("Could not open file: $file");
+        }
+
+        // Lees header
+        $header = fgetcsv($fp, 0, ',', '"', '\\');
+        if ($header === false) {
+            fclose($fp);
+            return ['posts' => [], 'total' => 0, 'page' => $page, 'perPage' => $perPage];
+        }
+
+        // Lees alle posts
+        $allPosts = [];
+        while (($line = fgets($fp)) !== false) {
+            if (trim($line) === '') {
+                continue;
+            }
+            $post = str_getcsv($line, ',', '"', '\\');
+            if (count($post) === count($header)) {
+                $allPosts[] = array_combine($header, $post);
+            }
+        }
+        fclose($fp);
+
+        $total = count($allPosts);
+        $totalPages = (int)ceil($total / $perPage);
+        
+        // Sorteer op published (nieuigste eerst) en pagineer
+        usort($allPosts, function($a, $b) {
+            return strnatcasecmp($b['published'] ?? '', $a['published'] ?? '');
+        });
+
+        $offset = ($page - 1) * $perPage;
+        $posts = array_slice($allPosts, $offset, $perPage);
+
+        return [
+            'posts' => $posts,
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'totalPages' => $totalPages,
+        ];
+    }
+
     // --- Subscriber Operaties ---
 
     /**
@@ -368,13 +434,17 @@ final class Minidon
         $xmlDoc = new \DOMDocument();
         $xmlDoc->loadXML($xml);
 
-        return $proc->transformToXML($xmlDoc);
+        $result = $proc->transformToXML($xmlDoc);
+        if ($result === false) {
+            throw new \RuntimeException("XSLT transformation failed");
+        }
+        return $result;
     }
 
     /**
      * Converteert een array naar XML.
      */
-    private function arrayToXML(array $data, ?\DOMElement $parent = null, ?\DOMDocument $doc = null): string
+    private function arrayToXML(array $data, ?\DOMElement $parent = null, ?\DOMDocument $doc = null, string $listElementName = 'item'): string
     {
         if ($doc === null) {
             $doc = new \DOMDocument('1.0', 'UTF-8');
@@ -385,12 +455,18 @@ final class Minidon
         }
 
         foreach ($data as $key => $value) {
+            // Handle numeric keys (arrays/lists) - use listElementName
+            if (is_int($key)) {
+                $key = $listElementName;
+            }
+            
             if (is_array($value)) {
-                $node = $doc->createElement($key);
+                $node = $doc->createElement((string)$key);
                 $parent->appendChild($node);
-                $this->arrayToXML($value, $node, $doc);
+                // For nested arrays, pass the original key as element name for children
+                $this->arrayToXML($value, $node, $doc, $listElementName);
             } else {
-                $node = $doc->createElement($key);
+                $node = $doc->createElement((string)$key);
                 $node->appendChild($doc->createTextNode((string)$value));
                 $parent->appendChild($node);
             }

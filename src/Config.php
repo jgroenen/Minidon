@@ -4,29 +4,29 @@ declare(strict_types=1);
 namespace Minidon;
 final class Config
 {
-    public string $API_KEY;
-    public string $ACTOR_NAME;
     public string $DATA_DIR;
     public string $TEMPLATE_DIR;
     public string $ACTOR_URL;
     public string $POSTS_URL;
+    public string $INSTANCE_NAME;
+    public string $TAGLINE;
 
     public function __construct(
-        string $API_KEY,
-        string $ACTOR_NAME,
+        string $INSTANCE_NAME,
         string $DATA_DIR,
         string $TEMPLATE_DIR,
         string $ACTOR_URL = '',
         string $POSTS_URL = '',
+        string $TAGLINE = '',
     ) {
-        $this->API_KEY = $API_KEY;
-        $this->ACTOR_NAME = $ACTOR_NAME;
+        $this->INSTANCE_NAME = $INSTANCE_NAME;
         $this->DATA_DIR = $DATA_DIR;
         $this->TEMPLATE_DIR = $TEMPLATE_DIR;
+        $this->TAGLINE = $TAGLINE;
 
         // Als ACTOR_URL of POSTS_URL niet zijn meegegeven, genereer ze dynamisch
         // Voor single-user ActivityPub: actor URL is /@{username} (URL-encoded)
-        $username = urlencode(strtolower(str_replace(' ', '_', $ACTOR_NAME)));
+        $username = urlencode(strtolower(str_replace(' ', '_', $INSTANCE_NAME)));
         $this->ACTOR_URL = $ACTOR_URL ?: $this->generateUrl('/@' . $username);
         $this->POSTS_URL = $POSTS_URL ?: $this->generateUrl('/posts');
 
