@@ -34,6 +34,81 @@ $minidon = new Minidon\Minidon($config);
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
+// Handle NodeInfo discovery
+if ($path === '/.well-known/nodeinfo') {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'links' => [
+            [
+                'rel' => 'http://nodeinfo.diaspora.software/ns/schema/2.0',
+                'href' => $config->ACTOR_URL . '/nodeinfo/2.0',
+            ],
+        ],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+// Handle NodeInfo 2.0
+if ($path === '/nodeinfo/2.0') {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'version' => '2.0',
+        'software' => [
+            'name' => 'Minidon',
+            'version' => '1.0',
+        ],
+        'protocols' => ['activitypub'],
+        'services' => [
+            'inbound' => [],
+            'outbound' => [],
+        ],
+        'openRegistrations' => false,
+        'usage' => [
+            'users' => [
+                'total' => 1,
+            ],
+            'localPosts' => 0,
+        ],
+        'metadata' => [],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+// Handle WebFinger for ActivityPub federation
+if ($path === '/.well-known/webfinger') {
+    $resource = $_GET['resource'] ?? '';
+    $resource = str_replace('acct:', '', $resource);
+    
+    $parts = explode('@', $resource);
+    if (count($parts) === 2) {
+        $username = $parts[0];
+        $domain = $parts[1];
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        
+        // Check if domain matches
+        if ($domain === $host || $domain === 'localhost') {
+            header('Content-Type: application/jrd+json');
+            echo json_encode([
+                'subject' => 'acct:' . $username . '@' . $domain,
+                'aliases' => [$config->ACTOR_URL],
+                'links' => [
+                    [
+                        'rel' => 'self',
+                        'type' => 'application/activity+json',
+                        'href' => $config->ACTOR_URL,
+                    ],
+                ],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+    }
+    
+    http_response_code(404);
+    header('Content-Type: application/jrd+json');
+    echo json_encode(['error' => 'Actor not found']);
+    exit;
+}
+
 // Handle /posts/{id}
 if (preg_match('#^/posts/([a-zA-Z0-9\-]+)$#', $path, $matches)) {
     $postId = $matches[1];
@@ -85,7 +160,7 @@ switch ($path) {
         echo json_encode($minidon->getActor(), JSON_PRETTY_PRINT);
         break;
 
-    case '/inbox':
+    case '/actor/inbox':
         if ($method !== 'POST') {
             http_response_code(405);
             die("Method not allowed");
@@ -103,11 +178,24 @@ switch ($path) {
         }
         break;
 
+    case '/inbox':
+        // Redirect old /inbox to /actor/inbox
+        header('HTTP/1.1 301 Moved Permanently');
+        header('Location: /actor/inbox');
+        exit;
+
     case '/posts':
+    case '/actor/outbox':
         $lastPost = $minidon->getLastPost();
         header('Content-Type: application/activity+json');
         echo json_encode($lastPost !== null ? [$lastPost] : []);
         break;
+
+    case '/outbox':
+        // Redirect /outbox to /posts for compatibility
+        header('HTTP/1.1 301 Moved Permanently');
+        header('Location: /posts');
+        exit;
 
     default:
         http_response_code(404);

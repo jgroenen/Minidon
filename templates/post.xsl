@@ -114,8 +114,16 @@
                                     <xsl:value-of select="data/post/published"/>
                                 </div>
                             </div>
-                            <div style="text-align: center;">
-                                <a href="{data/actorUrl}" class="follow-button" title="Volg {data/actorName} op ActivityPub">Volg mij</a>
+                            <div style="text-align: center; margin-top: 1rem;">
+                                <a 
+                                    href="https://mastodon.social/intent/follow?uri={data/actorUrl}" 
+                                    class="follow-button" 
+                                    title="Volg {data/actorName} op Mastodon"
+                                    onclick="event.preventDefault(); window.open(this.href, '_blank', 'width=400,height=500');"
+                                >Volg mij op Mastodon</a>
+                                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--mastodon-text-light);">
+                                    of kopieer: <code style="background: #f0f0f0; padding: 0.15rem 0.3rem; border-radius: 3px;"><xsl:value-of select="data/actorUrl"/></code>
+                                </div>
                             </div>
                         </xsl:when>
                         <xsl:otherwise>
