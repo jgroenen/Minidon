@@ -379,11 +379,11 @@ final class Minidon
             $target = 'post ' . parse_url($inboxUrl, PHP_URL_PATH) . (parse_url($inboxUrl, PHP_URL_QUERY) ? '?' . parse_url($inboxUrl, PHP_URL_QUERY) : '');
             $signatureString = "(request-target): $target\n" . "date: $date\n" . "digest: $digest\n";
             
-            // Sign with Ed25519
+            // Sign with RSA-SHA256
             $signature = '';
             $keyResource = openssl_pkey_get_private($privateKeyPem);
             if ($keyResource !== false) {
-                openssl_sign($signatureString, $signature, $keyResource, 'ed25519');
+                openssl_sign($signatureString, $signature, $keyResource, OPENSSL_ALGO_SHA256);
             }
             
             $signatureEncoded = rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
@@ -394,7 +394,7 @@ final class Minidon
                 'User-Agent: Minidon/1.0',
                 "Date: $date",
                 "Digest: $digest",
-                "Signature: keyId=\"$keyId\",algorithm=\"ed25519\",signature=\"$signatureEncoded\",headers=\"(request-target) date digest\"",
+                "Signature: keyId=\"$keyId\",algorithm=\"rsa-sha256\",signature=\"$signatureEncoded\",headers=\"(request-target) date digest\"",
             ]);
             curl_setopt($ch, CURLOPT_TIMEOUT, 5);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);

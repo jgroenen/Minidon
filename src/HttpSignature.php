@@ -11,7 +11,7 @@ namespace Minidon;
  */
 final class HttpSignature
 {
-    private const ALGORITHM = 'ed25519';
+    private const ALGORITHM = 'rsa-sha256';
     private const DEFAULT_HEADERS = '(request-target) date digest';
 
     /**
@@ -264,7 +264,7 @@ final class HttpSignature
     }
 
     /**
-     * Sign a string with Ed25519 private key
+     * Sign a string with RSA private key
      */
     private static function sign(string $data, string $privateKeyPEM): string
     {
@@ -274,7 +274,7 @@ final class HttpSignature
         }
 
         $signature = '';
-        $result = openssl_sign($data, $signature, $key, 'ed25519');
+        $result = openssl_sign($data, $signature, $key, OPENSSL_ALGO_SHA256);
         if ($result === false) {
             throw new \RuntimeException('Failed to sign data: ' . openssl_error_string());
         }
@@ -283,7 +283,7 @@ final class HttpSignature
     }
 
     /**
-     * Verify a signature with Ed25519 public key
+     * Verify a signature with RSA public key
      */
     private static function verify(string $data, string $signature, string $publicKeyPEM): bool
     {
@@ -292,7 +292,7 @@ final class HttpSignature
             return false;
         }
 
-        return openssl_verify($data, $signature, $key, 'ed25519') === 1;
+        return openssl_verify($data, $signature, $key, OPENSSL_ALGO_SHA256) === 1;
     }
 
     /**

@@ -92,26 +92,19 @@ final class Actor
     }
 
     /**
-     * Generate Ed25519 key pair for ActivityPub.
-     *
-     * @throws \RuntimeException If Ed25519 is not supported (requires PHP 8.0+ with OpenSSL 1.1.1+)
+     * Generate RSA key pair for ActivityPub.
+     * Uses RSA-SHA256 for compatibility with PHP 7.4+ and 8.0+
      */
     private function generateKeys(): void
     {
-        // Check if Ed25519 is supported
-        if (!defined('OPENSSL_KEYTYPE_ED25519')) {
-            throw new \RuntimeException(
-                'Ed25519 not supported. Requires PHP 8.0+ with OpenSSL 1.1.1+.'
-            );
-        }
-
         $keyPair = openssl_pkey_new([
-            'private_key_type' => OPENSSL_KEYTYPE_ED25519,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+            'private_key_bits' => 2048,
         ]);
 
         if ($keyPair === false) {
             throw new \RuntimeException(
-                'Failed to generate Ed25519 key pair. Check OpenSSL configuration.'
+                'Failed to generate RSA key pair. Check OpenSSL configuration.'
             );
         }
 
