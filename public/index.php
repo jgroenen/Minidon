@@ -162,23 +162,27 @@ if ($path === '/.well-known/webfinger') {
         
         // Check if domain matches
         if ($domain === $host || $domain === 'localhost') {
-            // Normalize the username for URL comparison
-            $normalizedUsername = strtolower(str_replace(' ', '_', $username));
-            $expectedActorPath = '/@' . $normalizedUsername;
+            // Normalize the username for lookup
+            $normalizedUsername = Actor::normalizeUsername($username);
             
-            header('Content-Type: application/jrd+json');
-            echo json_encode([
-                'subject' => 'acct:' . $username . '@' . $domain,
-                'aliases' => [$config->ACTOR_URL],
-                'links' => [
-                    [
-                        'rel' => 'self',
-                        'type' => 'application/activity+json',
-                        'href' => $config->ACTOR_URL,
+            // Check if actor exists
+            if ($actorRepository->hasUsername($normalizedUsername)) {
+                $actor = $actorRepository->getByUsername($normalizedUsername);
+                
+                header('Content-Type: application/jrd+json');
+                echo json_encode([
+                    'subject' => 'acct:' . $username . '@' . $domain,
+                    'aliases' => [$actor->getUrl()],
+                    'links' => [
+                        [
+                            'rel' => 'self',
+                            'type' => 'application/activity+json',
+                            'href' => $actor->getUrl(),
+                        ],
                     ],
-                ],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-            exit;
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                exit;
+            }
         }
     }
     

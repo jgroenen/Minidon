@@ -1,6 +1,5 @@
 id,priority,title,description,file,line,severity,status,estimated_time_minutes,category
 5,P1,HIGH: API keys in plaintext in CSV,"API keys staan in plaintext in data/actors.csv. Risico bij server compromise.",data/actors.csv,N/A,High,TODO,30,Security
-6,P1,HIGH: WebFinger doesn't handle multi-user,"WebFinger endpoint retourneert altijd eerste actor, niet de specifieke username.",public/index.php,145-165,High,TODO,20,Bug
 7,P1,HIGH: No CSRF protection,"POST endpoints hebben geen CSRF protectie. Malicious sites kunnen posts maken.",public/index.php,N/A,High,TODO,60,Security
 8,P1,HIGH: No rate limiting,"Geen beperking op requests. DOS attack risico.",public/index.php,N/A,High,TODO,60,Security
 9,P1,HIGH: HTTPS required for federation,"ActivityPub vereist HTTPS. Huidige code werkt op HTTP.",N/A,N/A,High,TODO,30,Deployment
