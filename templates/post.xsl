@@ -232,32 +232,13 @@
                     <div class="modal">
                         <h2>Volg op Mastodon</h2>
                         <p style="color: var(--mastodon-text-light); margin-bottom: 1rem; font-size: 0.95rem;">
-                            Voer je Mastodon instance in om direct te volgen.
+                            Kopieer onderstaande URL en plak deze in het zoekveld van je Mastodon instance.
                         </p>
                         <div class="actor-url-display" id="actorUrlDisplay"></div>
-                        <form class="modal-form" id="followForm" onsubmit="event.preventDefault(); followOnMastodon();">
-                            <div>
-                                <label for="mastodonInstance">Mastodon instance</label>
-                                <input 
-                                    type="text" 
-                                    id="mastodonInstance" 
-                                    placeholder="mastodon.social"
-                                    required="required"
-                                />
-                            </div>
-                            <div>
-                                <label for="mastodonUsername">Jouw username (optioneel)</label>
-                                <input 
-                                    type="text" 
-                                    id="mastodonUsername" 
-                                    placeholder="@jouwnaam"
-                                />
-                            </div>
-                            <div class="modal-buttons">
-                                <button type="button" class="modal-button secondary" onclick="closeFollowModal();">Annuleren</button>
-                                <button type="submit" class="modal-button primary">Volg nu</button>
-                            </div>
-                        </form>
+                        <div class="modal-buttons">
+                            <button type="button" class="modal-button secondary" onclick="closeFollowModal();">Sluiten</button>
+                            <button type="button" class="modal-button primary" onclick="copyActorUrl();">Kopieer URL</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -289,40 +270,24 @@
                     function openFollowModal() {
                         document.getElementById('followModal').classList.add('active');
                         document.getElementById('actorUrlDisplay').textContent = actorUrl;
-                        document.getElementById('mastodonInstance').focus();
                     }
                     
                     function closeFollowModal() {
                         document.getElementById('followModal').classList.remove('active');
-                        document.getElementById('followForm').reset();
                     }
                     
-                    function followOnMastodon() {
-                        const instance = document.getElementById('mastodonInstance').value.trim();
-                        const username = document.getElementById('mastodonUsername').value.trim();
-                        
-                        if (!instance) {
-                            alert('Voer een Mastodon instance in');
-                            return;
-                        }
-                        
-                        // Normalize instance (remove protocol, trailing slash)
-                        let normalizedInstance = instance
-                            .replace(/^https?:\/\//, '')
-                            .replace(/\/$/, '');
-                        
-                        // Build the intent URL
-                        let intentUrl = `https://${normalizedInstance}/intent/follow?uri=${encodeURIComponent(actorUrl)}`;
-                        
-                        // If username is provided, add it to the URL for some instances
-                        if (username) {
-                            intentUrl += `&amp;username=${encodeURIComponent(username)}`;
-                        }
-                        
-                        // Open in new window
-                        window.open(intentUrl, '_blank', 'width=400,height=500');
-                        
-                        // Close modal
+                    function copyActorUrl() {
+                        navigator.clipboard.writeText(actorUrl).then(function() {
+                            // Show success feedback
+                            const originalText = document.getElementById('actorUrlDisplay').textContent;
+                            document.getElementById('actorUrlDisplay').textContent = 'URL gekopieerd! ✓';
+                            setTimeout(function() {
+                                document.getElementById('actorUrlDisplay').textContent = originalText;
+                            }, 2000);
+                        }).catch(function(err) {
+                            // Fallback for older browsers
+                            prompt('Kopieer deze URL:', actorUrl);
+                        });
                         closeFollowModal();
                     }
                     
