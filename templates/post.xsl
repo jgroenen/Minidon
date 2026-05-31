@@ -74,6 +74,28 @@
                         text-decoration: underline;
                     }
                     
+                    .follow-button {
+                        display: inline-block;
+                        background-color: var(--mastodon-primary);
+                        color: white;
+                        border: none;
+                        border-radius: 24px;
+                        padding: 0.5rem 1.5rem;
+                        font-size: 1rem;
+                        font-weight: 500;
+                        cursor: pointer;
+                        margin-top: 1rem;
+                        transition: background-color 0.2s ease;
+                    }
+                    
+                    .follow-button:hover {
+                        background-color: var(--mastodon-secondary);
+                    }
+                    
+                    .follow-button:active {
+                        transform: scale(0.98);
+                    }
+                    
                     .empty-state {
                         text-align: center;
                         color: var(--mastodon-text-light);
@@ -91,6 +113,9 @@
                                 <div class="post-meta">
                                     <xsl:value-of select="data/post/published"/>
                                 </div>
+                            </div>
+                            <div style="text-align: center;">
+                                <a href="{data/actorUrl}" class="follow-button" title="Volg {data/actorName} op ActivityPub">Volg mij</a>
                             </div>
                         </xsl:when>
                         <xsl:otherwise>

@@ -55,6 +55,7 @@ switch ($path) {
         header('Content-Type: text/html');
         echo $minidon->renderWithXSLT('post', [
             'actorName' => $config->ACTOR_NAME,
+            'actorUrl' => $config->ACTOR_URL,
             'post' => $lastPost,
         ]);
         break;
