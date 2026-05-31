@@ -64,11 +64,15 @@ final class Minidon
         $sanitizedContent = htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
         $postId = time() . '_' . substr(md5($username), 0, 8);
         
+        // Create ActivityPub Note object
         $post = [
             'id' => $actor->getUrl() . '/' . $postId,
+            'type' => 'Note',
+            '@context' => 'https://www.w3.org/ns/activitystreams',
             'content' => $sanitizedContent,
             'published' => date('c'),
-            'author' => $actor->getUrl(),
+            'attributedTo' => $actor->getUrl(),
+            'to' => 'https://www.w3.org/ns/activitystreams#Public',
         ];
 
         $actorDataDir = $this->actorRepository->getActorDataDir($username);
