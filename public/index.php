@@ -201,25 +201,6 @@ switch ($path) {
         echo json_encode($lastPost !== null ? [$lastPost] : []);
         break;
 
-    // Handle /@username/inbox
-    case (preg_match('#^/@([a-zA-Z0-9_-]+)/inbox$#', $path, $matches) ? true : false):
-        if ($method !== 'POST') {
-            http_response_code(405);
-            die("Method not allowed");
-        }
-        $input = json_decode(file_get_contents('php://input'), true);
-        if (empty($input['type'])) {
-            http_response_code(400);
-            die("Bad request: 'type' is required");
-        }
-        if ($input['type'] === 'Follow' && !empty($input['actor'])) {
-            $minidon->addSubscriber($input['actor']);
-            error_log("New subscriber: " . $input['actor']);
-            http_response_code(202);
-            die("Accepted");
-        }
-        break;
-
     default:
         http_response_code(404);
         die("Not found");
