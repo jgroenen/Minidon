@@ -108,7 +108,13 @@ final class Minidon
             // Lees alle regels tot we de post vinden
             while (($line = fgets($fp)) !== false) {
                 $post = str_getcsv($line, ',', '"', '\\');
-                if (isset($post[0]) && str_contains($post[0], $postId)) {
+                if (isset($post[0]) && $post[0] === $postId) {
+                    fclose($fp);
+                    return array_combine($header, $post);
+                }
+                // For backwards compatibility: check if postId is at the end of the URL
+                // e.g., postId = "12345678_abcdef12" and post[0] = "http://domain/@user/12345678_abcdef12"
+                if (isset($post[0]) && str_ends_with($post[0], '/' . $postId)) {
                     fclose($fp);
                     return array_combine($header, $post);
                 }
