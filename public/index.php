@@ -34,6 +34,14 @@ $minidon = new Minidon\Minidon($config);
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
+// Strip /public prefix if present (for development setups where public is in the URL)
+if (strpos($path, '/public') === 0) {
+    $path = substr($path, 7); // Remove '/public'
+}
+if ($path === '') {
+    $path = '/';
+}
+
 // Handle NodeInfo discovery
 if ($path === '/.well-known/nodeinfo') {
     header('Content-Type: application/json');
