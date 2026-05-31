@@ -1,8 +1,4 @@
 id,priority,title,description,file,line,severity,status,estimated_time_minutes,category
-5,P1,HIGH: API keys in plaintext in CSV,"API keys staan in plaintext in data/actors.csv. Risico bij server compromise.",data/actors.csv,N/A,High,TODO,30,Security
-7,P1,HIGH: No CSRF protection,"POST endpoints hebben geen CSRF protectie. Malicious sites kunnen posts maken.",public/index.php,N/A,High,TODO,60,Security
-8,P1,HIGH: No rate limiting,"Geen beperking op requests. DOS attack risico.",public/index.php,N/A,High,TODO,60,Security
-9,P1,HIGH: HTTPS required for federation,"ActivityPub vereist HTTPS. Huidige code werkt op HTTP.",N/A,N/A,High,TODO,30,Deployment
 10,P2,MEDIUM: HTTP Signatures not implemented,"Incoming activities worden niet geverifieerd met HTTP Signatures.",public/index.php,167-175,Medium,TODO,240,Feature
 11,P2,MEDIUM: Actor JSON missing publicKey in profile,"/@username returned JSON contains actor but not full ActivityPub object with publicKey.",public/index.php,220-230,Medium,TODO,20,Bug
 12,P2,MEDIUM: Outbox should be OrderedCollection,"Outbox moet een OrderedCollection zijn met paginatie, nu alleen laatste post.",public/index.php,260-270,Medium,TODO,40,Feature
