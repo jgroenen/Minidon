@@ -37,10 +37,11 @@ final class Actor
 
     /**
      * Get the outbox URL.
+     * ActivityPub spec: must be /@{username}/outbox
      */
     public function getOutboxUrl(): string
     {
-        return $this->domain . '/posts';
+        return $this->getUrl() . '/outbox';
     }
 
     /**
